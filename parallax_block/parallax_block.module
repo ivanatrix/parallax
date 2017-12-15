@@ -1,0 +1,183 @@
+<?php
+
+
+/**
+ * Implements template_preprocess_block().
+ */
+function parallax_block_preprocess_block(&$vars) {
+  $block = $vars['block'];
+  if (($block->vertical_parallax_value != "none") || ($block->horizontal_parallax_value != "none")) {
+
+    $final_path = '';
+    if (isset(file_load($block->background_image)->uri)) {
+      $image_path  = file_load($block->background_image)->uri;
+      $final_path = file_create_url($image_path);
+    }
+
+    $vars['attributes_array'] = array(
+      'data-parallax'         => $block->horizontal_parallax_value . " " . $block->vertical_parallax_value,
+      'data-background-image' => $final_path,
+      'data-background-size'  => $block->background_size,
+    );
+  }
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function parallax_block_block_view_alter(&$data, $block) {
+  if (($block->vertical_parallax_value != 'none') || ($block->horizontal_parallax_value != 'none')) {
+
+    $data_type = gettype($data['content']);
+    if ($data_type == "array") {
+      $data_content_array = array(
+        '#attached' => array(
+        'js' => array(
+          'data' => drupal_get_path('module', 'parallax_block') . '/parallax.js',
+          'type' => 'file',
+          ),
+        ),
+      );
+      $data['content'] = array_merge($data['content'], $data_content_array);
+    } else {
+      $data['content'] = array(
+        '#markup' => $data['content'],
+        '#attached' => array(
+          'js' => array(
+            'data' => drupal_get_path('module', 'parallax_block') . '/parallax.js',
+            'type' => 'file',
+          ),
+        ),
+      );
+    }
+  }
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function parallax_block_form_alter(&$form, &$form_state, $form_id) {
+  if (($form_id == 'block_admin_configure') || ($form_id == 'block_add_block_form')) {
+    $block = block_load($form['module']['#value'], $form['delta']['#value']);
+
+    $form['settings']['parallax'] = array(
+      '#type'         => 'fieldset',
+      '#title'        => t('Parallax Settings'),
+      '#collapsible'  => TRUE,
+      '#collapsed'    => TRUE,
+    );
+
+    $form['settings']['parallax']['vertical_parallax_value'] = array(
+      '#title'    => t('Vertical Parallax Direction'),
+      '#type'     => 'select',
+      '#options'  => array(
+        'none' => t('None'),
+        'top-to-bottom' => t('Move to bottom on scroll (fast effect)'),
+        'bottom-to-top' => t('Move to top on scroll (slow effect)'),
+      ),
+      '#default_value' => isset($block->vertical_parallax_value) ? $block->vertical_parallax_value : 'none',
+    );
+
+    $form['settings']['parallax']['horizontal_parallax_value'] = array(
+      '#title'    => t('Horizontal Parallax Direction'),
+      '#type'     => 'select',
+      '#options'  => array(
+        'none' => t('None'),
+        'left-to-right' => t('Move to left on scroll'),
+        'right-to-left' => t('Move to right on scroll'),
+      ),
+      '#default_value' => isset($block->horizontal_parallax_value) ? $block->horizontal_parallax_value : 'none',
+    );
+
+    $form['settings']['parallax']['background_image'] = array(
+      '#title'                => t('Background Image'),
+      '#type'                 => 'managed_file',
+      '#description'          => t('Replace all spaces in file name with dashes. Larger pictures are recommended.'),
+      '#default_value'        => isset($block->background_image) ? $block->background_image : '',
+      '#upload_location'      => 'public://parallax_block/',
+      '#upload_validators'    => array(
+        'file_validate_extensions' => array('gif png jpg jpeg'),
+        'file_validate_size'  => array(2 * 1024 * 1024),
+      ),
+    );
+
+    $form['settings']['parallax']['background_size'] = array(
+      '#title'            => t('Background Size'),
+      '#type'             => 'textfield',
+      '#size'             => 60,
+      '#default_value'    => isset($block->background_size) ? $block->background_size : 'none',
+      '#description'      => t('Acceptable values are none, cover, contain, or percentages/pixels in the form of "200px" and "200%". If there is no effect, try altering this value.'),
+      '#maxlength'        => 20,
+      '#required'         => TRUE,
+      '#element_validate' => array('parallax_block_validate_size'),
+    );
+
+    $form['#submit'][] = 'parallax_block_form_submit';
+  }
+}
+
+/**
+ * Validation for Background Size text values.
+ */
+function parallax_block_validate_size($element, &$form_state) {
+  $allowed_text_values = array('none', 'cover', 'contain');
+  $value = strtolower($form_state['values']['background_size']);
+  $value_length = strlen($value);
+  $is_percentage = ((strpos($value, '%')) && (strpos($value, '%') == ($value_length - 1)) ? TRUE : FALSE);
+  $is_pixel = ((strpos($value, 'px')) && (strpos($value, 'px') == ($value_length - 2)) ? TRUE : FALSE);
+  $valid_text = (in_array($value, $allowed_text_values) ? TRUE : FALSE);
+
+  if (!$is_pixel && !$is_percentage && !$valid_text) {
+    form_error($element, t('Allowed values include cover, contain, none. Pixel and percentage based sizes should be specified as "***px" and "***%", respectively, with no characters after the "%", "px"'));
+  }
+}
+
+/**
+ * Helper function: additional submit callback for block configuration pages.
+ */
+function parallax_block_form_submit($form, &$form_state) {
+
+  if ($form_state['values']['form_id'] == 'block_admin_configure' || $form_state['values']['form_id'] == 'block_add_block_form') {
+
+    $parallax_items = array(
+      'vertical_parallax_value'   => $form_state['values']['vertical_parallax_value'],
+      'horizontal_parallax_value' => $form_state['values']['horizontal_parallax_value'],
+      'background_image'          => $form_state['values']['background_image'],
+      'background_size'           => $form_state['values']['background_size'],
+    );
+
+    if (parallax_block_updated_values($parallax_items, $form, $form_state)) {
+      db_update('block')
+        ->fields($parallax_items)
+        ->condition('module', $form_state['values']['module'])
+        ->condition('delta', $form_state['values']['delta'])
+        ->execute();
+
+      if($form_state['values']['background_image']) {
+        $image = file_load($form_state['values']['background_image']);
+        $image->status = FILE_STATUS_PERMANENT;
+        file_save($image);
+        file_usage_add($image, 'parallax_block', 'block', $form_state['values']['delta']);
+      }
+
+      if (module_exists('context')) {
+        cache_clear_all('context', 'cache', TRUE);
+      }
+    }
+  }
+}
+
+/**
+ * Function tests if any of the values are modified from the original value.
+ */
+function parallax_block_updated_values($items, $form, $form_state) {
+  foreach ($items as $key => $value) {
+    if (isset($form_state['values'][$key])
+        && ($form['settings']['parallax'][$key]['#default_value'] != $form_state['values'][$key])
+        && user_access('administer blocks')) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}

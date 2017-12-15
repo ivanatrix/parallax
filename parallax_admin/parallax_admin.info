@@ -1,0 +1,17 @@
+name = Parallax Admin
+description = Provides admin page for inputting selectors to enable parallax background effect.
+core = 7.x
+
+package = Parallax
+
+configure = admin/config/development/parallax
+
+dependencies[] = file
+dependencies[] = jquery_update
+
+; Information added by Drupal.org packaging script on 2014-11-20
+version = "7.x-2.4"
+core = "7.x"
+project = "parallax"
+datestamp = "1416489786"
+

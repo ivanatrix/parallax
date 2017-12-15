@@ -1,0 +1,61 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the parallax_admin module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function parallax_admin_schema() {
+  $schema['parallax_admin'] = array(
+    'description' => t('Parallax Admin Settings'),
+    'fields' => array(
+      'identifier' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => '',
+        'description' => t('Identifier for Parallax Admin item'),
+      ),
+      'selector' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => '',
+        'description' => t('Selector for Parallax Admin item'),
+      ),
+      'vertical_value' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => 'none',
+        'description' => t('String containing the vertical parallax value'),
+      ),
+      'horizontal_value' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => 'none',
+        'description' => t('String containing the horizontal parallax value'),
+      ),
+      'background_image' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => 'none',
+        'description' => 'String containing the background image name for the block',
+      ),
+      'background_size' => array(
+        'type'        => 'varchar',
+        'length'      => 255,
+        'not null'    => TRUE,
+        'default'     => 'none',
+        'description' => 'String containing the background size value for the block',
+      ),
+    ),
+  );
+
+  return $schema;
+}

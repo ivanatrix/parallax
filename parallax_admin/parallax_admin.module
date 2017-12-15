@@ -1,0 +1,216 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function parallax_admin_menu() {
+  $items['admin/config/development/parallax'] = array(
+    'title' => 'Parallax Admin',
+    'description' => 'Configure settings related to the Parallax Admin module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('parallax_admin_settings_form'),
+    'access arguments' => array('administer site configuration'),
+  );
+
+  return $items;
+}
+
+function parallax_admin_settings_form($form, &$form_state, $no_js_use = FALSE) {
+
+  // Get all values from parallax_admin table
+  $result = db_query("SELECT * FROM {parallax_admin}");
+  $pdb = $result->fetchAll();
+
+  $form['#tree'] = TRUE;
+  $form['parallax_fieldset'] = array(
+    '#type' => 'container',
+    '#prefix' => '<div id="parallax-fieldset-wrapper">',
+    '#suffix' => '</div>',
+  );
+
+  // If the table has values, get the number of rows. We do this so the form has
+  // the appropriate number of fieldsets to populate
+  if (empty($form_state['num_items'])) {
+    $form_state['num_items'] = count($pdb);
+  }
+
+  for ($i = 0; $i < $form_state['num_items']; $i++) {
+    $fieldset_background = ($i % 2 == 0) ? "#FFFFFF" : "#F6F6F2";
+    $form['parallax_fieldset'][$i] = array(
+      '#title'        => isset($pdb[$i]->identifier) ? $pdb[$i]->identifier : 'Parallax item ' . ($i + 1),
+      '#type'         => 'fieldset',
+      '#collapsible'  => TRUE,
+      '#collapsed'    => TRUE,
+      '#attributes'   => array(
+        'style'           => array('background-color: ' . $fieldset_background . ';'),
+      ),
+      'identifier'    => array(
+        '#title'          => t('Identifier'),
+        '#type'           => 'textfield',
+        '#default_value'  => isset($pdb[$i]->identifier) ? $pdb[$i]->identifier : 'Parallax item ' . ($i + 1),
+        '#description'    => 'This field is only used as an label on this page, to uniquely identify each parallax item.'
+      ),
+      'selector' => array(
+        '#title'          => t('Selector'),
+        '#type'           => 'textfield',
+        '#default_value'  => isset($pdb[$i]->selector) ? $pdb[$i]->selector : '',
+        '#description'    => 'You can use any CSS/jQuery selector here that you like. Please note that advanced CSS3 selectors such as :not might have limited support.'
+      ),
+      'vertical_value' => array(
+        '#title'          => t('Vertical Parallax Direction'),
+        '#type'           => 'select',
+        '#default_value'  => isset($pdb[$i]->vertical_value) ? $pdb[$i]->vertical_value : 'none',
+        '#options'        => array(
+          'none'              => t('None'),
+          'top-to-bottom'     => t('Move to bottom on scroll (fast effect)'),
+          'bottom-to-top'     => t('Move to top on scroll (slow effect)'),
+        ),
+      ),
+      'horizontal_value' => array(
+        '#title'          => t('Horizontal Parallax Direction'),
+        '#type'           => 'select',
+        '#default_value'  => isset($pdb[$i]->horizontal_value) ? $pdb[$i]->horizontal_value : 'none',
+        '#options'        => array(
+          'none'              => t('None'),
+          'left-to-right'     => t('Move to left on scroll'),
+          'right-to-left'     => t('Move to right on scroll'),
+        ),
+      ),
+      'background_image' => array(
+        '#title'                => t('Background Image'),
+        '#type'                 => 'managed_file',
+        '#description'          => t('Replace all spaces in file name with dashes. Larger pictures are recommended.'),
+        '#default_value'        => isset($pdb[$i]->background_image) ? $pdb[$i]->background_image : '',
+        '#upload_location'      => 'public://parallax_admin/',
+        '#upload_validators'    => array(
+          'file_validate_extensions'  => array('gif png jpg jpeg'),
+          'file_validate_size'        => array(2 * 1024 * 1024),
+        ),
+      ),
+      'background_size' => array(
+        '#title'            => t('Background Size'),
+        '#type'             => 'textfield',
+        '#size'             => 60,
+        '#default_value'    => isset($pdb[$i]->background_size) ? $pdb[$i]->background_size : 'none',
+        '#description'      => t('Acceptable values are none, cover, contain, or percentages/pixels in the form of "200px" and "200%". If there is no effect, try altering this value.'),
+        '#maxlength'        => 20,
+      ),
+    );
+  }
+  $form['parallax_fieldset']['add_item'] = array(
+    '#type' => 'submit',
+    '#value' => t('Add item'),
+    '#submit' => array('parallax_admin_add_one'),
+    '#ajax' => array(
+      'callback' => 'parallax_admin_callback',
+      'wrapper' => 'parallax-fieldset-wrapper',
+    ),
+  );
+
+  if ($form_state['num_items'] > 1) {
+    $form['parallax_fieldset']['remove_item'] = array(
+      '#type' => 'submit',
+      '#value' => t('Remove item'),
+      '#submit' => array('parallax_admin_remove_one'),
+      '#ajax' => array(
+        'callback' => 'parallax_admin_callback',
+        'wrapper' => 'parallax-fieldset-wrapper',
+      ),
+    );
+  }
+
+  $final_form = system_settings_form($form);
+  array_push($final_form['#submit'], 'parallax_admin_submit');
+
+  return $final_form;
+}
+
+/**
+ * Callback for both ajax-enabled buttons.
+ *
+ * Selects and returns the fieldset with the names in it.
+ */
+function parallax_admin_callback($form, $form_state) {
+  return $form['parallax_fieldset'];
+}
+
+/**
+ * Submit handler for the "add-one-more" button.
+ *
+ * Increments the max counter and causes a rebuild.
+ */
+function parallax_admin_add_one($form, &$form_state) {
+  $form_state['num_items']++;
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Submit handler for the "remove one" button.
+ *
+ * Decrements the max counter and causes a form rebuild.
+ */
+function parallax_admin_remove_one($form, &$form_state) {
+  if ($form_state['num_items'] > 1) {
+    $form_state['num_items']--;
+  }
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Final submit handler.
+ *
+ * Reports what values were finally set.
+ */
+function parallax_admin_submit($form, &$form_state) {
+
+  $all_values = $form_state['values']['parallax_fieldset'];
+  $num_items = count($all_values);
+  $records = array();
+
+  for ( $i = 0; $i < $num_items; $i++) {
+    array_push($records, array(
+      'identifier'        => $all_values[$i]['identifier'],
+      'selector'          => $all_values[$i]['selector'],
+      'vertical_value'    => $all_values[$i]['vertical_value'],
+      'horizontal_value'  => $all_values[$i]['horizontal_value'],
+      'background_image'  => $all_values[$i]['background_image'],
+      'background_size'   => $all_values[$i]['background_size'],
+    ));
+  }
+  // Delete all database values so we can write new row values
+  db_delete('parallax_admin')->execute();
+
+  // Write each new value
+  foreach($records as $index=>$record) {
+    drupal_write_record('parallax_admin', $record);
+  }
+}
+
+function parallax_admin_page_alter(&$page) {
+  // Get all rows from parallax_admin table
+  $result = db_query("SELECT * FROM {parallax_admin}");
+  $pdb = $result->fetchAll();
+
+  $added_js   = "var parallaxItems = [\n";
+  $added_css  = "";
+  foreach($pdb as $row) {
+    // Generate CSS if background image is set
+    if($row->background_image != 0) {
+      $image = file_load($row->background_image);
+      $image_path = "url(" . file_create_url($image->uri) . ")";
+      $added_css .= $row->selector . " { background-image: $image_path !important;";
+      $added_css .= "background-size: " . $row->background_size . ";}\n";
+    }
+
+    // Generate JS array if parallax values are set
+    if (($row->vertical_value != "none") || ($row->horizontal_value != "none")) {
+      $added_js .= "['" . $row->selector . "', '" . $row->vertical_value . "', '" . $row->horizontal_value . "'],\n";
+    }
+  }
+  $added_js .= "];\n";
+
+  // Add background-image CSS, array JS, and JS file to page
+  drupal_add_css($added_css, array('type' => 'inline'));
+  drupal_add_js($added_js, array('type' => 'inline'));
+  drupal_add_js(drupal_get_path('module', 'parallax_admin') .'/parallax_admin.js');
+}

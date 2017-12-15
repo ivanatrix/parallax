@@ -1,0 +1,10 @@
+name = Parallax Block
+description = Provides toggle to enable parallax background effect for all blocks.
+core = 7.x
+
+package = Parallax
+
+dependencies[] = block
+dependencies[] = file
+dependencies[] = jquery_update
+

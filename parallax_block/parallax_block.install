@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function parallax_block_install() {
+  $schema['block'] = array();
+  parallax_block_schema_alter($schema);
+  foreach ($schema['block']['fields'] as $field => $spec) {
+    if (db_field_exists('block', $field)) {
+      watchdog('system', 'Module install: Attempt to recreate field: "%field", when it already exists.', array('%field' => $field), WATCHDOG_WARNING);
+    }
+    else {
+      db_add_field('block', $field, $spec);
+    }
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function parallax_block_uninstall() {
+  $schema['block'] = array();
+  parallax_block_schema_alter($schema);
+  foreach ($schema['block']['fields'] as $field => $specs) {
+    db_drop_field('block', $field);
+  }
+}
+
+/**
+ * Implements hook_schema_alter().
+ */
+function parallax_block_schema_alter(&$schema) {
+  $schema['block']['fields']['vertical_parallax_value'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => 'none',
+    'description' => 'String containing the vertical parallax value for the block',
+  );
+
+  $schema['block']['fields']['horizontal_parallax_value'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => 'none',
+    'description' => 'String containing the horizontal parallax value for the block',
+  );
+
+  $schema['block']['fields']['background_image'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => 'none',
+    'description' => 'String containing the background image name for the block',
+  );
+
+  $schema['block']['fields']['background_size'] = array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => 'none',
+    'description' => 'String containing the background position value for the block',
+  );
+}
